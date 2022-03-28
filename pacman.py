@@ -641,7 +641,7 @@ def loadAgent(pacman, no_graphics, base_dir=''):
             continue
 
     for sub_path in path.glob('*'):
-        if sub_path.is_dir():
+        if sub_path.is_dir() and sub_path.name == "pacman_utils":
             next_dir = base_dir+'/'+sub_path.stem if base_dir else sub_path.stem
             return loadAgent(pacman, no_graphics, next_dir)
 
