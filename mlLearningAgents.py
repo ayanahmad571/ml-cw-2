@@ -82,6 +82,9 @@ class QLearnAgent(Agent):
         # Count the number of games we have played
         self.episodesSoFar = 0
 
+        self.q_vals = util.Counter()
+
+
     # Accessor functions for the variable episodesSoFar controlling learning
     def incrementEpisodesSoFar(self):
         self.episodesSoFar += 1
@@ -122,13 +125,13 @@ class QLearnAgent(Agent):
             The reward assigned for the given trajectory
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        # util.raiseNotDefined()
+        return endState.getScore() - startState.getScore()
+
 
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
-    def getQValue(self,
-                  state: GameStateFeatures,
-                  action: Directions) -> float:
+    def getQValue(self, state: GameStateFeatures, action: Directions) -> float:
         """
         Args:
             state: A given state
@@ -138,7 +141,8 @@ class QLearnAgent(Agent):
             Q(state, action)
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        # util.raiseNotDefined()
+        return self.qValues[(state, action)]
 
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
