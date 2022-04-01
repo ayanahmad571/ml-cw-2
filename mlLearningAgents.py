@@ -26,6 +26,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 
 import random
+import sys
 
 from pacman import Directions, GameState
 from pacman_utils.game import Agent
@@ -100,8 +101,8 @@ class QLearnAgent(Agent):
         
         # maintain scores
         self.score = 0
-        self.lastState = []
-        self.lastAction = []
+        self.lastState = None
+        self.lastAction = None
 
 
     # Accessor functions for the variable episodesSoFar controlling learning
@@ -202,7 +203,10 @@ class QLearnAgent(Agent):
             reward: the reward received on this trajectory
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        currentQVal = self.getQValue(state, action)
+        self.updateCount(state, action)
+        newQVal = currentQVal + (self.alpha * (reward + (self.gamma * self.maxQValue(nextState)) - currentQVal))
+        self.qValues[str(state), action] = newQVal
 
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
@@ -254,7 +258,15 @@ class QLearnAgent(Agent):
             The exploration value
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        
+        #TODO: Fix this Func
+        OPTIMISTIC_REWARD = sys.float_info.max
+        if counts < self.maxAttempts:
+            return OPTIMISTIC_REWARD / (counts + 1)
+        else: 
+            return utility
+   
+
 
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
@@ -278,18 +290,38 @@ class QLearnAgent(Agent):
             legal.remove(Directions.STOP)
 
         # logging to help you understand the inputs, feel free to remove
-        print("Legal moves: ", legal)
-        print("Pacman position: ", state.getPacmanPosition())
-        print("Ghost positions:", state.getGhostPositions())
-        print("Food locations: ")
-        print(state.getFood())
+        # print("Legal moves: ", legal)
+        # print("Pacman position: ", state.getPacmanPosition())
+        # print("Ghost positions:", state.getGhostPositions())
+        # print("Food locations: ")
+        # print(state.getFood())
         print("Score: ", state.getScore())
 
         stateFeatures = GameStateFeatures(state)
 
         # Now pick what action to take.
         # The current code shows how to do that but just makes the choice randomly.
-        return random.choice(legal)
+
+
+        if self.lastAction != None:
+            previousStateFeatures = GameStateFeatures(self.lastState)
+            reward = self.computeReward(self.lastState, state)
+            self.learn(previousStateFeatures, self.lastAction, reward, stateFeatures)            
+        
+        acc = []
+        for direction in legal:
+            qValue = self.getQValue(stateFeatures, direction)
+            stateActionCount = self.getCount(stateFeatures, direction)
+            explortionVal = self.explorationFn(qValue, stateActionCount) 
+            
+            temp = (explortionVal, direction)
+            acc.append(temp)
+        
+        nextAction = max(acc)[1]
+        self.lastState = state
+        self.lastAction = nextAction
+        return nextAction
+        
 
     def final(self, state: GameState):
         """
@@ -299,6 +331,12 @@ class QLearnAgent(Agent):
         Args:
             state: the final game state
         """
+        nextState = GameStateFeatures(state)
+        self.learn(GameStateFeatures(self.lastState), self.lastAction, self.computeReward(self.lastState, state), nextState)
+        self.lastState = None
+        self.lastAction = None
+
+
         print(f"Game {self.getEpisodesSoFar()} just ended!")
 
         # Keep track of the number of games played, and set learning
