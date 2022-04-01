@@ -48,7 +48,19 @@ class GameStateFeatures:
         """
 
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        self.legal = state.getLegalPacmanActions()
+        self.packmanPosition = state.getPacmanPosition()
+        self.ghostPositions = state.getGhostPositions()
+        self.capsules = state.getCapsules()
+        self.food = state.getFood()
+        self.walls = state.getWalls()
+        if Directions.STOP in self.legal:
+            self.legal.remove(Directions.STOP)
+        
+    def __str__(self) -> str:
+        stringHash = str(self.legal) + str(self.packmanPosition) +str(self.ghostPositions)+str(self.capsules)+str(self.food) + str(self.walls)
+        return stringHash
+    
 
 
 class QLearnAgent(Agent):
@@ -82,7 +94,14 @@ class QLearnAgent(Agent):
         # Count the number of games we have played
         self.episodesSoFar = 0
 
-        self.q_vals = util.Counter()
+        # tracking the actions and q_vals
+        self.qValues = util.Counter()
+        self.stateNums = util.Counter()
+        
+        # maintain scores
+        self.score = 0
+        self.lastState = []
+        self.lastAction = []
 
 
     # Accessor functions for the variable episodesSoFar controlling learning
@@ -125,7 +144,6 @@ class QLearnAgent(Agent):
             The reward assigned for the given trajectory
         """
         "*** YOUR CODE HERE ***"
-        # util.raiseNotDefined()
         return endState.getScore() - startState.getScore()
 
 
@@ -141,8 +159,8 @@ class QLearnAgent(Agent):
             Q(state, action)
         """
         "*** YOUR CODE HERE ***"
-        # util.raiseNotDefined()
-        return self.qValues[(state, action)]
+        qValue = self.qValues[(str(state), action)]
+        return qValue
 
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
@@ -155,7 +173,17 @@ class QLearnAgent(Agent):
             q_value: the maximum estimated Q-value attainable from the state
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        qTempHolder = []
+        legalActions = state.legal
+        for m in legalActions:
+            q = self.getQValue(state,m)
+            qTempHolder.append(q)
+        
+        if len(qTempHolder) > 0:
+            return max(qTempHolder)
+        else:
+            return 0
+        
 
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
@@ -189,7 +217,7 @@ class QLearnAgent(Agent):
             action: Action taken
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        self.stateNums[str(state), action] += 1 
 
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
@@ -205,7 +233,7 @@ class QLearnAgent(Agent):
             Number of times that the action has been taken in a given state
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        return self.stateNums[str(state), action]
 
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
