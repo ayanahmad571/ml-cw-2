@@ -92,17 +92,19 @@ class QLearnAgent(Agent):
         self.gamma = float(gamma)
         self.maxAttempts = int(maxAttempts)
         self.numTraining = int(numTraining)
+
         # Count the number of games we have played
         self.episodesSoFar = 0
 
-        # tracking the actions and q_vals
-        self.qValues = util.Counter()
-        self.stateNums = util.Counter()
+        self.qTableValues = util.Counter() # Storing the Q Values for each state with the index being (state, action)
+        self.stateVisitedFreq = util.Counter() # 
         
         # maintain scores
         self.score = 0
-        self.lastState = None
-        self.lastAction = None
+        self.lastMove = {
+            "state":None,
+            "action":None
+        } # Storing the Last State and Action as a tuple (State, Action)
 
 
     # Accessor functions for the variable episodesSoFar controlling learning
@@ -160,7 +162,7 @@ class QLearnAgent(Agent):
             Q(state, action)
         """
         "*** YOUR CODE HERE ***"
-        qValue = self.qValues[(str(state), action)]
+        qValue = self.qTableValues[(str(state), action)]
         return qValue
 
     # WARNING: You will be tested on the functionality of this method
@@ -174,14 +176,16 @@ class QLearnAgent(Agent):
             q_value: the maximum estimated Q-value attainable from the state
         """
         "*** YOUR CODE HERE ***"
-        qTempHolder = []
+        # Temporary array holding q values
+        valueHolder = []
         legalActions = state.legal
+        
         for m in legalActions:
             q = self.getQValue(state,m)
-            qTempHolder.append(q)
+            valueHolder.append(q)
         
-        if len(qTempHolder) > 0:
-            return max(qTempHolder)
+        if len(valueHolder) > 0:
+            return max(valueHolder)
         else:
             return 0
         
@@ -203,10 +207,17 @@ class QLearnAgent(Agent):
             reward: the reward received on this trajectory
         """
         "*** YOUR CODE HERE ***"
-        currentQVal = self.getQValue(state, action)
+        # Update the Count for the number of visits of this State Action pair
         self.updateCount(state, action)
-        newQVal = currentQVal + (self.alpha * (reward + (self.gamma * self.maxQValue(nextState)) - currentQVal))
-        self.qValues[str(state), action] = newQVal
+
+        currentQVal = self.getQValue(state, action)
+        alphaVal = self.alpha
+        maxQValNextState = self.maxQValue(nextState)
+        innerVal = (reward + (self.gamma * maxQValNextState) - currentQVal)
+        newQVal = currentQVal + (alphaVal * innerVal)
+
+        # Update this states val
+        self.qTableValues[str(state), action] = newQVal
 
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
@@ -221,7 +232,7 @@ class QLearnAgent(Agent):
             action: Action taken
         """
         "*** YOUR CODE HERE ***"
-        self.stateNums[str(state), action] += 1 
+        self.stateVisitedFreq[str(state), action] += 1 
 
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
@@ -237,7 +248,7 @@ class QLearnAgent(Agent):
             Number of times that the action has been taken in a given state
         """
         "*** YOUR CODE HERE ***"
-        return self.stateNums[str(state), action]
+        return self.stateVisitedFreq[str(state), action]
 
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
@@ -297,29 +308,32 @@ class QLearnAgent(Agent):
         # print(state.getFood())
         print("Score: ", state.getScore())
 
-        stateFeatures = GameStateFeatures(state)
+        nextStateFeatures = GameStateFeatures(state)
 
         # Now pick what action to take.
         # The current code shows how to do that but just makes the choice randomly.
 
-
-        if self.lastAction != None:
-            previousStateFeatures = GameStateFeatures(self.lastState)
-            reward = self.computeReward(self.lastState, state)
-            self.learn(previousStateFeatures, self.lastAction, reward, stateFeatures)            
+        # If the previous state is not None, it is not the starting state, then compute values for this run
+        if self.lastMove["state"] != None:
+            previousStateFeatures = GameStateFeatures(self.lastMove["state"])
+            reward = self.computeReward(self.lastMove["state"], state)
+            self.learn(previousStateFeatures, self.lastMove["action"], reward, nextStateFeatures)            
         
         acc = []
         for direction in legal:
-            qValue = self.getQValue(stateFeatures, direction)
-            stateActionCount = self.getCount(stateFeatures, direction)
-            explortionVal = self.explorationFn(qValue, stateActionCount) 
+            qValue = self.getQValue(nextStateFeatures, direction)
+            stateActionCount = self.getCount(nextStateFeatures, direction)
+            explorationVal = self.explorationFn(qValue, stateActionCount) 
             
-            temp = (explortionVal, direction)
+            temp = (explorationVal, direction)
             acc.append(temp)
         
-        nextAction = max(acc)[1]
-        self.lastState = state
-        self.lastAction = nextAction
+        bestNextExploreActionPair = max(acc)
+        nextAction = bestNextExploreActionPair[1]
+
+        self.lastMove["state"] = state
+        self.lastMove["action"] = nextAction
+        
         return nextAction
         
 
@@ -332,9 +346,9 @@ class QLearnAgent(Agent):
             state: the final game state
         """
         nextState = GameStateFeatures(state)
-        self.learn(GameStateFeatures(self.lastState), self.lastAction, self.computeReward(self.lastState, state), nextState)
-        self.lastState = None
-        self.lastAction = None
+        self.learn(GameStateFeatures(self.lastMove["state"]), self.lastMove["action"], self.computeReward(self.lastMove["state"], state), nextState)
+        self.lastMove["state"] = None
+        self.lastMove["action"] = None
 
 
         print(f"Game {self.getEpisodesSoFar()} just ended!")
