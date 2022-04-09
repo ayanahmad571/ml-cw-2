@@ -21,6 +21,7 @@
 
 # This template was originally adapted to KCL by Simon Parsons, but then
 # revised and updated to Py3 for the 2022 course by Dylan Cope and Lin Li
+# further updated by Ayan Ahmad, k19002255
 
 from __future__ import absolute_import
 from __future__ import print_function
@@ -48,19 +49,57 @@ class GameStateFeatures:
             state: A given game state object
         """
 
-        
         self.legal = state.getLegalPacmanActions()
         self.packmanPosition = state.getPacmanPosition()
         self.ghostPositions = state.getGhostPositions()
         self.capsules = state.getCapsules()
         self.food = state.getFood()
         self.walls = state.getWalls()
+
+
         if Directions.STOP in self.legal:
             self.legal.remove(Directions.STOP)
+
+    def __hash__(self) -> int:
+        """
+        This function converts the GameStateFeatures object into a hash based on its parameter values.
+        The intended purpose of this hash function is to serve as a key for the dictionary. 
+        It is not feasible to use an object as a key since any two objects, although may have the same parameter values, will never be equal.
+
+        Returns:
+            Integer hash of the current object
+        """
         
-    def __str__(self) -> str:
-        stringHash = str(self.legal) + str(self.packmanPosition) +str(self.ghostPositions)+str(self.capsules)+str(self.food) + str(self.walls)
-        return stringHash
+        # Convert Hashes to a string and concatenate all strings
+        hashStr = ""
+        hashStr += str(hash(self.packmanPosition))
+        hashStr += str(hash(self.food))
+        hashStr += str(hash(self.walls))
+
+        # Convert mutable lists to immutable objects and hashes them
+        hashStr += str(hash(frozenset(self.legal))) 
+        hashStr += str(hash(frozenset(self.ghostPositions))) 
+        hashStr += str(hash(frozenset(self.capsules))) 
+
+
+        # Hash the final string and return
+        numHash = hash(hashStr)
+        return numHash
+    
+    
+    def __eq__(self, other: object) -> bool:
+        """
+        This is an equals function used to compare two GameStateFeatures objects. 
+        The objects are hashed and their values are compared.
+
+        Args:
+            other: Another state object
+
+        Returns:
+            Boolean value, true if objects are the same
+        """
+
+        return hash(self) == hash(other)
     
 
 
@@ -93,19 +132,18 @@ class QLearnAgent(Agent):
         self.maxAttempts = int(maxAttempts)
         self.numTraining = int(numTraining)
 
-        # Count the number of games we have played
-        self.episodesSoFar = 0
-
-        self.qTableValues = util.Counter() # Storing the Q Values for each state with the index being (state, action)
+        self.episodesSoFar = 0 # Count the number of games we have played
+        self.qTableValues = util.Counter() # Store the Q Values for each state with the index being (state, action)
         self.stateVisitedFreq = util.Counter() # Store the number of times a state is visited
-        self.epsilon_decay_val = 0.99 # How much should the epsilon value decay by after each run
+        self.epsilonDecayVal = 0.99 # The factor by which the epsilon value should decay by
         
-        # maintain scores
-        self.score = 0
+        self.score = 0 # To maintain total score
+
+        # Storing the Last State and Action as a dictionary
         self.lastMove = {
             "state":None,
             "action":None
-        } # Storing the Last State and Action as a tuple (State, Action)
+        } 
 
 
     # Accessor functions for the variable episodesSoFar controlling learning
@@ -133,9 +171,12 @@ class QLearnAgent(Agent):
 
     def getMaxAttempts(self) -> int:
         return self.maxAttempts
-
-    def epsilon_decay(self):
-        self.epsilon = self.epsilon * self.epsilon_decay_val
+    
+    def epsilonDecay(self):
+        """
+        Decays the value of epsilon by the epsilon decay factor
+        """
+        self.epsilon = self.epsilon * self.epsilonDecayVal
 
 
     # WARNING: You will be tested on the functionality of this method
@@ -151,8 +192,8 @@ class QLearnAgent(Agent):
         Returns:
             The reward assigned for the given trajectory
         """
-        
-        return endState.getScore() - startState.getScore()
+        rewardDiff = endState.getScore() - startState.getScore()
+        return rewardDiff
 
 
     # WARNING: You will be tested on the functionality of this method
@@ -166,8 +207,8 @@ class QLearnAgent(Agent):
         Returns:
             Q(state, action)
         """
-        
-        qValue = self.qTableValues[(str(state), action)]
+        # The hashed version of a state along with the action are used as a key.
+        qValue = self.qTableValues[(hash(state), action)]
         return qValue
 
     # WARNING: You will be tested on the functionality of this method
@@ -181,14 +222,14 @@ class QLearnAgent(Agent):
             q_value: the maximum estimated Q-value attainable from the state
         """
         
-        # Temporary array holding q values
-        valueHolder = []
+        valueHolder = [] # Temporary array holding q values
         legalActions = state.legal
         
         for m in legalActions:
             q = self.getQValue(state,m)
-            valueHolder.append(q)
+            valueHolder.append(q) 
         
+        # If no q values were added to the temp list, then return 0
         if len(valueHolder) > 0:
             return max(valueHolder)
         else:
@@ -215,6 +256,7 @@ class QLearnAgent(Agent):
         # Update the Count for the number of visits of this State Action pair
         self.updateCount(state, action)
 
+        # Update Formula
         currentQVal = self.getQValue(state, action)
         alphaVal = self.alpha
         maxQValNextState = self.maxQValue(nextState)
@@ -222,7 +264,7 @@ class QLearnAgent(Agent):
         newQVal = currentQVal + (alphaVal * innerVal)
 
         # Update this states val
-        self.qTableValues[str(state), action] = newQVal
+        self.qTableValues[hash(state), action] = newQVal
 
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
@@ -237,7 +279,8 @@ class QLearnAgent(Agent):
             action: Action taken
         """
         
-        self.stateVisitedFreq[str(state), action] += 1 
+        # Increments the value by 1, if this is a new state value will be already initialized to 0 (using Util.Counter)
+        self.stateVisitedFreq[hash(state), action] += 1 
 
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
@@ -253,7 +296,7 @@ class QLearnAgent(Agent):
             Number of times that the action has been taken in a given state
         """
         
-        return self.stateVisitedFreq[str(state), action]
+        return self.stateVisitedFreq[hash(state), action]
 
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
@@ -261,26 +304,19 @@ class QLearnAgent(Agent):
                       utility: float,
                       counts: int) -> float:
         """
-        Computes exploration function.
-        Return a value based on the counts
-
-        HINT: Do a greed-pick or a least-pick
+        Computes exploration function. 
+        Returns just the utility, since Epsilon Greedy is used.
 
         Args:
             utility: expected utility for taking some action a in some given state s
             counts: counts for having taken visited
 
         Returns:
-            The exploration value
+            The exploration value - Utility
         """
         
         
-        #TODO: Fix this Func
-        OPTIMISTIC_REWARD = sys.float_info.max
-        if counts < self.maxAttempts:
-            return OPTIMISTIC_REWARD / (counts + 1)
-        else: 
-            return utility
+        return utility
    
 
 
@@ -305,37 +341,39 @@ class QLearnAgent(Agent):
         if Directions.STOP in legal:
             legal.remove(Directions.STOP)
 
-        print("Score: ", state.getScore())
+        # print("Score: ", state.getScore())
 
         # Load the Game features for this state
         nextStateFeatures = GameStateFeatures(state)
 
-        # If the previous state is not None. If it is not the starting state, then compute values for this run.
+        # Implement Q learning update on the previous step (if this is not the first step, LastMove['state'] is not None)
         if self.lastMove["state"] != None:
             previousStateFeatures = GameStateFeatures(self.lastMove["state"])
             reward = self.computeReward(self.lastMove["state"], state)
             self.learn(previousStateFeatures, self.lastMove["action"], reward, nextStateFeatures)            
         
-        if random.random() < self.epsilon:
+        # Pick what action to take through Epsilon Greedy Method
+        if util.flipCoin(self.epsilon):
+            # Exploration
             nextAction = random.choice(legal)
         else:
-            # Get the action with the maximum exploration value
-            nextExploreActionPair = []
+            # Exploitation
+
+            # Temporary list used to calculate the best exploration value and its corresponding direction
+            nextActionPair = [] 
             for direction in legal:
                 qValue = self.getQValue(nextStateFeatures, direction)
                 stateActionCount = self.getCount(nextStateFeatures, direction)
                 explorationVal = self.explorationFn(qValue, stateActionCount) 
                 
+                # Store a tuple in the list
                 temp = (explorationVal, direction)
-                nextExploreActionPair.append(temp)
+                nextActionPair.append(temp)
             
             # Returns the tuple where the item at index 0 is max
-            bestNextExploreActionPair = max(nextExploreActionPair)
-            nextAction = bestNextExploreActionPair[1]
-        
-        self.epsilon_decay()
-        # Epsilon value slowly decreases overtime
-        self.epsilon = self.epsilon * 0.99
+            bestNextActionPair = max(nextActionPair)
+            nextAction = bestNextActionPair[1]
+                
 
 
         # Rest the last State and Action values.
@@ -362,8 +400,8 @@ class QLearnAgent(Agent):
 
         print(f"Game {self.getEpisodesSoFar()} just ended!")
 
-        # Epsilon value slowly decreases overtime
-        self.epsilon_decay()
+        # Epsilon value is decreased
+        self.epsilonDecay()
 
         # Keep track of the number of games played, and set learning
         # parameters to zero when we are done with the pre-set number
