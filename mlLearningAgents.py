@@ -316,19 +316,22 @@ class QLearnAgent(Agent):
             reward = self.computeReward(self.lastMove["state"], state)
             self.learn(previousStateFeatures, self.lastMove["action"], reward, nextStateFeatures)            
         
-        # Get the action with the maximum exploration value
-        nextExploreActionPair = []
-        for direction in legal:
-            qValue = self.getQValue(nextStateFeatures, direction)
-            stateActionCount = self.getCount(nextStateFeatures, direction)
-            explorationVal = self.explorationFn(qValue, stateActionCount) 
+        if random.random() < self.epsilon:
+            nextAction = random.choice(legal)
+        else:
+            # Get the action with the maximum exploration value
+            nextExploreActionPair = []
+            for direction in legal:
+                qValue = self.getQValue(nextStateFeatures, direction)
+                stateActionCount = self.getCount(nextStateFeatures, direction)
+                explorationVal = self.explorationFn(qValue, stateActionCount) 
+                
+                temp = (explorationVal, direction)
+                nextExploreActionPair.append(temp)
             
-            temp = (explorationVal, direction)
-            nextExploreActionPair.append(temp)
-        
-        # Returns the tuple where the item at index 0 is max
-        bestNextExploreActionPair = max(nextExploreActionPair)
-        nextAction = bestNextExploreActionPair[1]
+            # Returns the tuple where the item at index 0 is max
+            bestNextExploreActionPair = max(nextExploreActionPair)
+            nextAction = bestNextExploreActionPair[1]
         
         self.epsilon_decay()
         # Epsilon value slowly decreases overtime
