@@ -48,7 +48,7 @@ class GameStateFeatures:
             state: A given game state object
         """
 
-        "*** YOUR CODE HERE ***"
+        
         self.legal = state.getLegalPacmanActions()
         self.packmanPosition = state.getPacmanPosition()
         self.ghostPositions = state.getGhostPositions()
@@ -97,7 +97,8 @@ class QLearnAgent(Agent):
         self.episodesSoFar = 0
 
         self.qTableValues = util.Counter() # Storing the Q Values for each state with the index being (state, action)
-        self.stateVisitedFreq = util.Counter() # 
+        self.stateVisitedFreq = util.Counter() # Store the number of times a state is visited
+        self.epsilon_decay_val = 0.99 # How much should the epsilon value decay by after each run
         
         # maintain scores
         self.score = 0
@@ -133,6 +134,10 @@ class QLearnAgent(Agent):
     def getMaxAttempts(self) -> int:
         return self.maxAttempts
 
+    def epsilon_decay(self):
+        self.epsilon = self.epsilon * self.epsilon_decay_val
+
+
     # WARNING: You will be tested on the functionality of this method
     # DO NOT change the function signature
     @staticmethod
@@ -146,7 +151,7 @@ class QLearnAgent(Agent):
         Returns:
             The reward assigned for the given trajectory
         """
-        "*** YOUR CODE HERE ***"
+        
         return endState.getScore() - startState.getScore()
 
 
@@ -161,7 +166,7 @@ class QLearnAgent(Agent):
         Returns:
             Q(state, action)
         """
-        "*** YOUR CODE HERE ***"
+        
         qValue = self.qTableValues[(str(state), action)]
         return qValue
 
@@ -175,7 +180,7 @@ class QLearnAgent(Agent):
         Returns:
             q_value: the maximum estimated Q-value attainable from the state
         """
-        "*** YOUR CODE HERE ***"
+        
         # Temporary array holding q values
         valueHolder = []
         legalActions = state.legal
@@ -206,7 +211,7 @@ class QLearnAgent(Agent):
             nextState: the resulting state
             reward: the reward received on this trajectory
         """
-        "*** YOUR CODE HERE ***"
+        
         # Update the Count for the number of visits of this State Action pair
         self.updateCount(state, action)
 
@@ -231,7 +236,7 @@ class QLearnAgent(Agent):
             state: Starting state
             action: Action taken
         """
-        "*** YOUR CODE HERE ***"
+        
         self.stateVisitedFreq[str(state), action] += 1 
 
     # WARNING: You will be tested on the functionality of this method
@@ -247,7 +252,7 @@ class QLearnAgent(Agent):
         Returns:
             Number of times that the action has been taken in a given state
         """
-        "*** YOUR CODE HERE ***"
+        
         return self.stateVisitedFreq[str(state), action]
 
     # WARNING: You will be tested on the functionality of this method
@@ -268,7 +273,7 @@ class QLearnAgent(Agent):
         Returns:
             The exploration value
         """
-        "*** YOUR CODE HERE ***"
+        
         
         #TODO: Fix this Func
         OPTIMISTIC_REWARD = sys.float_info.max
@@ -300,37 +305,37 @@ class QLearnAgent(Agent):
         if Directions.STOP in legal:
             legal.remove(Directions.STOP)
 
-        # logging to help you understand the inputs, feel free to remove
-        # print("Legal moves: ", legal)
-        # print("Pacman position: ", state.getPacmanPosition())
-        # print("Ghost positions:", state.getGhostPositions())
-        # print("Food locations: ")
-        # print(state.getFood())
         print("Score: ", state.getScore())
 
+        # Load the Game features for this state
         nextStateFeatures = GameStateFeatures(state)
 
-        # Now pick what action to take.
-        # The current code shows how to do that but just makes the choice randomly.
-
-        # If the previous state is not None, it is not the starting state, then compute values for this run
+        # If the previous state is not None. If it is not the starting state, then compute values for this run.
         if self.lastMove["state"] != None:
             previousStateFeatures = GameStateFeatures(self.lastMove["state"])
             reward = self.computeReward(self.lastMove["state"], state)
             self.learn(previousStateFeatures, self.lastMove["action"], reward, nextStateFeatures)            
         
-        acc = []
+        # Get the action with the maximum exploration value
+        nextExploreActionPair = []
         for direction in legal:
             qValue = self.getQValue(nextStateFeatures, direction)
             stateActionCount = self.getCount(nextStateFeatures, direction)
             explorationVal = self.explorationFn(qValue, stateActionCount) 
             
             temp = (explorationVal, direction)
-            acc.append(temp)
+            nextExploreActionPair.append(temp)
         
-        bestNextExploreActionPair = max(acc)
+        # Returns the tuple where the item at index 0 is max
+        bestNextExploreActionPair = max(nextExploreActionPair)
         nextAction = bestNextExploreActionPair[1]
+        
+        self.epsilon_decay()
+        # Epsilon value slowly decreases overtime
+        self.epsilon = self.epsilon * 0.99
 
+
+        # Rest the last State and Action values.
         self.lastMove["state"] = state
         self.lastMove["action"] = nextAction
         
@@ -345,6 +350,7 @@ class QLearnAgent(Agent):
         Args:
             state: the final game state
         """
+        # Register the Last iteration and Rest Last State and Action values to None for the next game
         nextState = GameStateFeatures(state)
         self.learn(GameStateFeatures(self.lastMove["state"]), self.lastMove["action"], self.computeReward(self.lastMove["state"], state), nextState)
         self.lastMove["state"] = None
@@ -352,6 +358,9 @@ class QLearnAgent(Agent):
 
 
         print(f"Game {self.getEpisodesSoFar()} just ended!")
+
+        # Epsilon value slowly decreases overtime
+        self.epsilon_decay()
 
         # Keep track of the number of games played, and set learning
         # parameters to zero when we are done with the pre-set number
