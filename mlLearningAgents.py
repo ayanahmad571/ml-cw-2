@@ -312,11 +312,17 @@ class QLearnAgent(Agent):
             counts: counts for having taken visited
 
         Returns:
-            The exploration value - Utility
+            The exploration value
         """
         
         
-        return utility
+        if counts <= self.maxAttempts:
+            # Returns Utility if the state has been visited more than the number of max attempts
+            return utility 
+        else:
+            # Else return Utility per visit
+            utilPerCount = utility / counts
+            return utilPerCount
    
 
 
